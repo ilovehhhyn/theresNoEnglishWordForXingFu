@@ -1,0 +1,498 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Poetry Stars</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    body {
+      overflow: hidden;
+      font-family: Arial, sans-serif;
+    }
+    
+    #start-screen {
+      width: 100vw;
+      height: 100vh;
+      background-color: #000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      user-select: none;
+    }
+    
+    #start-screen p {
+      color: #fff;
+      font-size: 24px;
+      letter-spacing: 2px;
+      text-transform: lowercase;
+    }
+    
+    #game-screen {
+      display: none;
+      width: 100vw;
+      height: 100vh;
+      background-color: #fff;
+      position: relative;
+      cursor: none;
+    }
+    
+    #canvas {
+      position: absolute;
+      top: 0;
+      left: 0;
+    }
+    
+    #ring-cursor {
+      position: absolute;
+      width: 120px;
+      height: 120px;
+      border: 2px solid #000;
+      border-radius: 50%;
+      pointer-events: none;
+      transform: translate(-50%, -50%);
+      display: none;
+    }
+    
+    .word {
+      position: absolute;
+      font-family: Arial, sans-serif;
+      font-size: 18px;
+      color: #000;
+      background-color: #fff;
+      padding: 4px 10px;
+      user-select: none;
+      pointer-events: none;
+      white-space: nowrap;
+      transform: translate(-50%, -50%);
+    }
+    
+    #hint {
+      position: fixed;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-family: Arial, sans-serif;
+      font-size: 12px;
+      color: #999;
+      user-select: none;
+    }
+  </style>
+</head>
+<body>
+  <div id="start-screen">
+    <p>click anywhere to catch stars</p>
+  </div>
+  
+  <div id="game-screen">
+    <canvas id="canvas"></canvas>
+    <div id="ring-cursor"></div>
+    <div id="words-container"></div>
+    <div id="hint">click stars to catch words for your poetry</div>
+  </div>
+
+  <script>
+    // Word pool with elementary school vocabulary
+    const wordPool = [
+      // Common connector words
+      'is', 'is', 'the', 'the', 'a', 'a',
+      'and', 'and', 'but', 'or', 'if', 'so',
+      'my', 'your', 'our', 'their', 'his', 'her',
+      'I', 'you', 'we', 'they', 'she', 'he',
+      
+      // Fruits
+      'apple', 'apple', 'apple', 'orange', 'orange', 'orange',
+      'banana', 'banana', 'banana', 'lemon', 'lemon', 'lime',
+      'peach', 'peach', 'plum', 'plum', 'grape', 'grape',
+      'cherry', 'cherry', 'mango', 'mango', 'pear', 'pear',
+      'melon', 'melon', 'strawberry', 'strawberry', 'blueberry',
+      'raspberry', 'watermelon', 'pineapple', 'coconut', 'kiwi',
+      'apricot', 'pomegranate', 'tangerine', 'grapefruit',
+      
+      // Foods
+      'bread', 'bread', 'honey', 'honey', 'butter', 'butter',
+      'cheese', 'cheese', 'pizza', 'pizza', 'pasta', 'pasta',
+      'sandwich', 'hamburger', 'hotdog', 'taco', 'burrito',
+      'pancake', 'waffle', 'cereal', 'oatmeal', 'yogurt',
+      'cookie', 'cookie', 'cupcake', 'donut', 'brownie',
+      'chocolate', 'chocolate', 'candy', 'ice cream', 'pudding',
+      'popcorn', 'pretzel', 'cracker', 'chips', 'noodles',
+      'soup', 'salad', 'rice', 'beans', 'corn',
+      
+      // Vegetables
+      'carrot', 'carrot', 'broccoli', 'spinach', 'lettuce',
+      'tomato', 'tomato', 'potato', 'onion', 'garlic',
+      'cucumber', 'celery', 'pepper', 'mushroom', 'pumpkin',
+      
+      // Animals
+      'puppy', 'puppy', 'kitten', 'kitten', 'bunny', 'bunny',
+      'hamster', 'goldfish', 'parrot', 'turtle', 'frog',
+      'butterfly', 'butterfly', 'ladybug', 'dragonfly', 'bumblebee',
+      'dolphin', 'dolphin', 'penguin', 'penguin', 'flamingo',
+      'elephant', 'giraffe', 'zebra', 'lion', 'tiger',
+      'monkey', 'panda', 'koala', 'kangaroo', 'hippo',
+      'dinosaur', 'unicorn', 'dragon', 'squirrel', 'raccoon',
+      'owl', 'eagle', 'hummingbird', 'peacock', 'swan',
+      
+      // Action verbs
+      'run', 'run', 'sprint', 'sprint', 'dash', 'race',
+      'jump', 'jump', 'leap', 'hop', 'skip', 'bounce',
+      'climb', 'climb', 'crawl', 'tumble', 'roll', 'slide',
+      'swim', 'swim', 'splash', 'dive', 'float', 'paddle',
+      'dance', 'dance', 'twirl', 'spin', 'wiggle', 'shake',
+      'sing', 'sing', 'hum', 'whistle', 'shout', 'whisper',
+      'giggle', 'giggle', 'laugh', 'smile', 'grin', 'wink',
+      'hug', 'hug', 'cuddle', 'squeeze', 'tickle', 'kiss',
+      'draw', 'draw', 'paint', 'color', 'sketch', 'doodle',
+      'build', 'build', 'stack', 'create', 'craft', 'design',
+      'throw', 'catch', 'kick', 'toss', 'roll', 'spin',
+      'cook', 'bake', 'stir', 'mix', 'chop', 'sprinkle',
+      'plant', 'grow', 'water', 'bloom', 'blossom', 'harvest',
+      'sparkle', 'sparkle', 'glitter', 'shimmer', 'twinkle', 'glow',
+      'zoom', 'zoom', 'whoosh', 'swoosh', 'zip', 'zoom',
+      'munch', 'crunch', 'nibble', 'gobble', 'slurp', 'sip',
+      'snuggle', 'snooze', 'yawn', 'stretch', 'nap', 'dream',
+      'explore', 'discover', 'adventure', 'wander', 'search',
+      'imagine', 'pretend', 'wish', 'wonder', 'believe',
+      
+      // Colors
+      'yellow', 'yellow', 'purple', 'purple', 'pink', 'pink',
+      'orange', 'turquoise', 'magenta', 'golden', 'silver',
+      'crimson', 'scarlet', 'emerald', 'sapphire', 'ruby',
+      'rainbow', 'rainbow', 'sunset', 'sunrise',
+      
+      // Adjectives
+      'happy', 'happy', 'silly', 'silly', 'funny', 'funny',
+      'brave', 'brave', 'clever', 'smart', 'wise', 'curious',
+      'gentle', 'kind', 'friendly', 'cheerful', 'jolly', 'merry',
+      'tiny', 'tiny', 'huge', 'giant', 'enormous', 'teeny',
+      'fluffy', 'fluffy', 'fuzzy', 'soft', 'cozy', 'squishy',
+      'sparkly', 'sparkly', 'shiny', 'glittery', 'glossy', 'bright',
+      'crunchy', 'crispy', 'chewy', 'gooey', 'sticky', 'slimy',
+      'speedy', 'zippy', 'quick', 'swift', 'snappy', 'bouncy',
+      'beautiful', 'pretty', 'lovely', 'gorgeous', 'handsome',
+      'magical', 'magical', 'enchanted', 'wonderful', 'amazing',
+      'yummy', 'yummy', 'delicious', 'tasty', 'scrumptious',
+      'sleepy', 'drowsy', 'cozy', 'peaceful', 'dreamy',
+      'wobbly', 'jiggly', 'wiggly', 'squiggly', 'bubbly',
+      
+      // Nature
+      'sunshine', 'sunshine', 'rainbow', 'moonlight', 'starlight',
+      'raindrop', 'snowflake', 'icicle', 'puddle', 'cloud',
+      'mountain', 'valley', 'meadow', 'forest', 'jungle',
+      'ocean', 'beach', 'island', 'waterfall', 'river',
+      'garden', 'flower', 'petal', 'blossom', 'daisy',
+      'sunflower', 'tulip', 'rose', 'dandelion', 'clover',
+      'acorn', 'pinecone', 'seashell', 'feather', 'pebble',
+      
+      // Fun objects
+      'balloon', 'balloon', 'bubble', 'bubble', 'confetti',
+      'firework', 'sparkler', 'glitter', 'ribbon', 'streamer',
+      'treasure', 'treasure', 'jewel', 'crystal', 'diamond',
+      'crayon', 'marker', 'paintbrush', 'sticker', 'stamp',
+      'puzzle', 'blocks', 'lego', 'kite', 'frisbee',
+      'trampoline', 'swing', 'slide', 'seesaw', 'carousel',
+      
+      // Whimsical
+      'gigantic', 'spectacular', 'incredible', 'fantastic',
+      'adventure', 'journey', 'quest', 'mystery', 'secret',
+      'superhero', 'princess', 'wizard', 'fairy', 'pirate',
+      'castle', 'kingdom', 'palace', 'tower', 'treehouse'
+    ];
+
+    // Pixelated star patterns
+    const starPatterns = {
+      small4: [
+        [0,0,1,0,0],
+        [0,0,1,0,0],
+        [1,1,1,1,1],
+        [0,0,1,0,0],
+        [0,0,1,0,0],
+      ],
+      medium4: [
+        [0,0,0,1,0,0,0],
+        [0,0,0,1,0,0,0],
+        [0,0,1,1,1,0,0],
+        [1,1,1,1,1,1,1],
+        [0,0,1,1,1,0,0],
+        [0,0,0,1,0,0,0],
+        [0,0,0,1,0,0,0],
+      ],
+      small5: [
+        [0,0,1,0,0],
+        [0,1,1,1,0],
+        [1,1,1,1,1],
+        [0,1,0,1,0],
+        [1,0,0,0,1],
+      ],
+      medium5: [
+        [0,0,0,1,0,0,0],
+        [0,0,1,1,1,0,0],
+        [0,0,1,1,1,0,0],
+        [1,1,1,1,1,1,1],
+        [0,1,1,1,1,1,0],
+        [0,1,0,0,0,1,0],
+        [1,0,0,0,0,0,1],
+      ],
+      medium6: [
+        [0,0,1,0,1,0,0],
+        [0,0,1,1,1,0,0],
+        [1,1,1,1,1,1,1],
+        [0,1,1,1,1,1,0],
+        [1,1,1,1,1,1,1],
+        [0,0,1,1,1,0,0],
+        [0,0,1,0,1,0,0],
+      ],
+      large8: [
+        [0,0,0,0,1,0,0,0,0],
+        [0,0,0,1,1,1,0,0,0],
+        [0,0,1,0,1,0,1,0,0],
+        [0,1,0,1,1,1,0,1,0],
+        [1,1,1,1,1,1,1,1,1],
+        [0,1,0,1,1,1,0,1,0],
+        [0,0,1,0,1,0,1,0,0],
+        [0,0,0,1,1,1,0,0,0],
+        [0,0,0,0,1,0,0,0,0],
+      ],
+      sparkle: [
+        [0,0,0,1,0,0,0],
+        [0,0,0,1,0,0,0],
+        [0,0,0,1,0,0,0],
+        [1,1,1,1,1,1,1],
+        [0,0,0,1,0,0,0],
+        [0,0,0,1,0,0,0],
+        [0,0,0,1,0,0,0],
+      ],
+      diamond: [
+        [0,0,1,0,0],
+        [0,1,1,1,0],
+        [1,1,1,1,1],
+        [0,1,1,1,0],
+        [0,0,1,0,0],
+      ],
+    };
+
+    const patternKeys = Object.keys(starPatterns);
+    const CAPTURE_RADIUS = 60;
+
+    // State
+    let stars = [];
+    let words = [];
+    let mouseX = -1000;
+    let mouseY = -1000;
+    let starId = 0;
+    let lastSpawn = 0;
+    let animationId = null;
+
+    // DOM elements
+    const startScreen = document.getElementById('start-screen');
+    const gameScreen = document.getElementById('game-screen');
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    const ringCursor = document.getElementById('ring-cursor');
+    const wordsContainer = document.getElementById('words-container');
+
+    function getRandomWord() {
+      return wordPool[Math.floor(Math.random() * wordPool.length)];
+    }
+
+    function createStar(canvasWidth) {
+      const patternKey = patternKeys[Math.floor(Math.random() * patternKeys.length)];
+      const pattern = starPatterns[patternKey];
+      const pixelSize = Math.floor(Math.random() * 3) + 2;
+      const rotation = Math.floor(Math.random() * 4) * 90;
+      
+      return {
+        id: starId++,
+        x: Math.random() * canvasWidth,
+        y: -50,
+        vx: (Math.random() - 0.5) * 0.5,
+        vy: Math.random() * 1.5 + 1,
+        pattern,
+        pixelSize,
+        rotation,
+        word: getRandomWord(),
+        width: pattern[0].length * pixelSize,
+        height: pattern.length * pixelSize,
+      };
+    }
+
+    function drawStar(star) {
+      const { x, y, pattern, pixelSize, rotation } = star;
+      const size = pattern.length * pixelSize;
+      
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.rotate(rotation * Math.PI / 180);
+      ctx.translate(-size / 2, -size / 2);
+      
+      ctx.fillStyle = '#000';
+      for (let row = 0; row < pattern.length; row++) {
+        for (let col = 0; col < pattern[row].length; col++) {
+          if (pattern[row][col] === 1) {
+            ctx.fillRect(col * pixelSize, row * pixelSize, pixelSize, pixelSize);
+          }
+        }
+      }
+      
+      ctx.restore();
+    }
+
+    function addWord(star) {
+      const wordEl = document.createElement('div');
+      wordEl.className = 'word';
+      wordEl.textContent = star.word;
+      wordEl.style.left = star.x + 'px';
+      wordEl.style.top = star.y + 'px';
+      wordsContainer.appendChild(wordEl);
+      
+      words.push({
+        id: star.id,
+        word: star.word,
+        x: star.x,
+        y: star.y,
+        width: star.word.length * 10 + 20,
+        height: 24
+      });
+    }
+
+    function resizeCanvas() {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+    }
+
+    function animate(timestamp) {
+      const width = canvas.width;
+      const height = canvas.height;
+      
+      // Spawn new stars
+      if (timestamp - lastSpawn > 150 && stars.length < 50) {
+        stars.push(createStar(width));
+        lastSpawn = timestamp;
+      }
+      
+      // Update stars
+      stars = stars.map(star => {
+        let { x, y, vx, vy } = star;
+        
+        x += vx;
+        y += vy;
+        
+        vy += 0.03;
+        vx *= 0.99;
+        vy *= 0.99;
+        
+        const starHalfSize = Math.max(star.width, star.height) / 2;
+        
+        // Word collision - bend trajectory
+        words.forEach(word => {
+          const wordLeft = word.x - word.width / 2;
+          const wordRight = word.x + word.width / 2;
+          const wordTop = word.y - word.height / 2;
+          const wordBottom = word.y + word.height / 2;
+          
+          const dx = x - word.x;
+          const dy = y - word.y;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          
+          const avoidRadius = Math.max(word.width, word.height) / 2 + starHalfSize + 30;
+          
+          if (dist < avoidRadius && dist > 0) {
+            const force = (avoidRadius - dist) / avoidRadius * 0.8;
+            vx += (dx / dist) * force;
+          }
+          
+          // Hard collision
+          if (x > wordLeft - starHalfSize && x < wordRight + starHalfSize &&
+              y > wordTop - starHalfSize && y < wordBottom + starHalfSize) {
+            
+            const overlapLeft = (wordRight + starHalfSize) - x;
+            const overlapRight = x - (wordLeft - starHalfSize);
+            const overlapTop = (wordBottom + starHalfSize) - y;
+            const overlapBottom = y - (wordTop - starHalfSize);
+            
+            const minOverlap = Math.min(overlapLeft, overlapRight, overlapTop, overlapBottom);
+            
+            if (minOverlap === overlapTop || minOverlap === overlapBottom) {
+              vy = -vy * 0.4;
+              if (minOverlap === overlapTop) y = wordBottom + starHalfSize + 1;
+              else y = wordTop - starHalfSize - 1;
+            } else {
+              vx = -vx * 0.4;
+              if (minOverlap === overlapLeft) x = wordRight + starHalfSize + 1;
+              else x = wordLeft - starHalfSize - 1;
+            }
+          }
+        });
+        
+        // Boundary checks
+        if (x < starHalfSize) {
+          x = starHalfSize;
+          vx = Math.abs(vx) * 0.5;
+        }
+        if (x > width - starHalfSize) {
+          x = width - starHalfSize;
+          vx = -Math.abs(vx) * 0.5;
+        }
+        
+        return { ...star, x, y, vx, vy };
+      }).filter(star => star.y < height + 50);
+      
+      // Draw
+      ctx.clearRect(0, 0, width, height);
+      stars.forEach(drawStar);
+      
+      animationId = requestAnimationFrame(animate);
+    }
+
+    function startGame() {
+      startScreen.style.display = 'none';
+      gameScreen.style.display = 'block';
+      ringCursor.style.display = 'block';
+      resizeCanvas();
+      animationId = requestAnimationFrame(animate);
+    }
+
+    // Event listeners
+    startScreen.addEventListener('click', startGame);
+
+    gameScreen.addEventListener('mousemove', (e) => {
+      mouseX = e.clientX;
+      mouseY = e.clientY;
+      ringCursor.style.left = mouseX + 'px';
+      ringCursor.style.top = mouseY + 'px';
+    });
+
+    gameScreen.addEventListener('click', (e) => {
+      const clickX = e.clientX;
+      const clickY = e.clientY;
+      
+      const captured = [];
+      const remaining = [];
+      
+      stars.forEach(star => {
+        const dx = star.x - clickX;
+        const dy = star.y - clickY;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        
+        if (dist <= CAPTURE_RADIUS) {
+          captured.push(star);
+        } else {
+          remaining.push(star);
+        }
+      });
+      
+      captured.forEach(addWord);
+      stars = remaining;
+    });
+
+    window.addEventListener('resize', resizeCanvas);
+  </script>
+</body>
+</html>
